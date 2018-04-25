@@ -1,3 +1,4 @@
+/*global d3 */
 import Component from '@ember/component';
 
 const REGEX = /\{(.+)\}/;
@@ -9,7 +10,9 @@ function parseLabels(inputSVG, targetSVG) {
     let answer = match[1];
     text.textContent = "--";
     text.setAttribute('data-dragnet-label', answer);
-    targetSVG.insertAdjacentHTML('beforeend', `<text x="0" y="${25 * (i + 1)}">${answer}</text>`);
+    targetSVG.insertAdjacentHTML('beforeend', `<text transform="matrix(1 0 0 1 0 0)"
+onmousedown="selectElement(evt)"
+ class="dragnet__draggable" x="0" y="${25 * (i + 1)}">${answer}</text>`);
   });
 }
 
@@ -20,5 +23,6 @@ export default Component.extend({
 
     let svg = this.element.querySelector('svg');
     parseLabels(svg, svg);
+
   }
 });
