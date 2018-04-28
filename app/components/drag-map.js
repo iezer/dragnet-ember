@@ -7,14 +7,6 @@ const LABEL_DATA_ATTRIBUTE = 'data-dragnet-label';
 
 const DRAGGABLE_CLASS = 'dragnet__label';
 
-function getX(index) {
-  return 500;
-}
-
-function getY(index) {
-  return 25 * (index + 1);
-}
-
 let detectOverlap = (function () {
     function getPositions(elem) {
         let pos = elem.getBoundingClientRect();
@@ -35,25 +27,51 @@ let detectOverlap = (function () {
     };
 })();
 
-function parseLabels(inputSVG, targetSVG) {
-  inputSVG.querySelectorAll('text').forEach((text, i) => {
-    let match = REGEX.exec(text.textContent);
-    if (!match) { return; }
-    let answer = match[1];
-    text.textContent = "--";
-    text.setAttribute(LABEL_DATA_ATTRIBUTE, answer);
-    targetSVG.insertAdjacentHTML('beforeend', `<text transform="matrix(1 0 0 1 0 0)"
-      class="${DRAGGABLE_CLASS}" x="${getX(i)}" y="${getY(i)}">${answer}</text>`);
-  });
-}
+var Dragnet = class {
+  constructor(svg) {
+    this.svg = svg;
+    this.labelDataAttribute = LABEL_DATA_ATTRIBUTE;
+    this.draggableClass = DRAGGABLE_CLASS;
+    this.regex = REGEX;
+  }
 
-export default Component.extend({
-  didInsertElement() {
-    this._super(...arguments);
+  // Public Methods
+  getX(index) {
+    return 500;
+  }
 
-    let svg = this.element.querySelector('svg');
-    parseLabels(svg, svg);
-  },
+  getY(index) {
+    return 25 * (index + 1);
+  }
+
+  onIncorrect() {
+    alert('Some answers wrong');
+  }
+
+  onCorrect() {
+    alert('All answers are correct.');
+  }
+
+  // Private Methods, you're unlikely to have to modify these
+  parseLabels() {
+    this.svg.querySelectorAll('text').forEach((text, i) => {
+      let match = this.regex.exec(text.textContent);
+      if (!match) { return; }
+      let answer = match[1];
+      text.textContent = "--";
+      text.setAttribute(this.labelDataAttribute, answer);
+      this.svg.insertAdjacentHTML('beforeend', `<text transform="matrix(1 0 0 1 0 0)"
+        class="${this.draggableClass}" x="${this.getX(i)}" y="${this.getY(i)}">${answer}</text>`);
+    });
+
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
+    this.svg.addEventListener('mousedown', this.mouseDown.bind(this));
+    this.svg.addEventListener('mousemove', this.mouseMove.bind(this));
+    this.svg.addEventListener('mouseup', this.mouseUp.bind(this));
+  }
 
   mouseDown(evt) {
     if (!evt.target.classList.contains(DRAGGABLE_CLASS)) {
@@ -68,22 +86,10 @@ export default Component.extend({
     for(let i=0; i < this.currentMatrix.length; i++) {
       this.currentMatrix[i] = parseFloat(this.currentMatrix[i]);
     }
-  },
-
-  hovered() {
-    let placeholders = Array.prototype.slice.call(this.element.querySelectorAll(`[${LABEL_DATA_ATTRIBUTE}]`));
-
-    return placeholders.any(label => detectOverlap(label, this.selectedElement));
-  },
+  }
 
   mouseMove(evt) {
     if (!this.selectedElement) { return; }
-
-    let hovered = this.hovered();
-
-    if (hovered) {
-      console.log(`overlap ${hovered}`);
-    }
 
     let dx = evt.clientX - this.currentX;
     let dy = evt.clientY - this.currentY;
@@ -94,12 +100,7 @@ export default Component.extend({
     this.selectedElement.setAttributeNS(null, "transform", newMatrix);
     this.currentX = evt.clientX;
     this.currentY = evt.clientY;
-
-  },
-
-  resetPosition(target) {
-    target.setAttributeNS(null, 'transform', 'matrix(1 0 0 1 0 0)');
-  },
+  }
 
   mouseUp(evt) {
     if (!this.selectedElement) { return; }
@@ -108,7 +109,55 @@ export default Component.extend({
       this.resetPosition(this.selectedElement);
     }
 
+    if (this.allMatched()) {
+      if (this.allCorrect()) {
+        this.onCorrect();
+      } else {
+        this.onIncorrect();
+      }
+    }
+
     this.selectedElement = null;
   }
 
+  hovered() {
+    let placeholders = Array.prototype.slice.call(this.svg.querySelectorAll(`[${this.labelDataAttribute}]`));
+
+    return placeholders.any(label => detectOverlap(label, this.selectedElement));
+  }
+
+  allMatched() {
+    let placeholders = Array.prototype.slice.call(this.svg.querySelectorAll(`[${this.labelDataAttribute}]`));
+    let labels = Array.prototype.slice.call(this.svg.querySelectorAll(`.${this.draggableClass}`));
+
+    return labels.every(element => {
+      return placeholders.any(label => detectOverlap(label, element));
+    });
+  }
+
+  allCorrect() {
+    let placeholders = Array.prototype.slice.call(this.svg.querySelectorAll(`[${this.labelDataAttribute}]`));
+    let labels = Array.prototype.slice.call(this.svg.querySelectorAll(`.${this.draggableClass}`));
+
+    return labels.every(element => {
+      let hoveredElement = placeholders.find(label => detectOverlap(label, element));
+      return hoveredElement && element.textContent === hoveredElement.getAttribute(this.labelDataAttribute);
+    });
+  }
+
+  resetPosition(target) {
+    target.setAttributeNS(null, 'transform', 'matrix(1 0 0 1 0 0)');
+  }
+};
+
+export default Component.extend({
+  didInsertElement() {
+    this._super(...arguments);
+
+    let svg = this.element.querySelector('svg');
+    this.dragnet = new Dragnet(svg);
+    this.dragnet.parseLabels();
+    this.dragnet.onIncorrect = function() { alert('bleh'); }
+    this.dragnet.onCorrect = function() { alert('exactly right!'); }
+  }
 });
