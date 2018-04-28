@@ -8,7 +8,7 @@ const LABEL_DATA_ATTRIBUTE = 'data-dragnet-label';
 const DRAGGABLE_CLASS = 'dragnet__label';
 
 function getX(index) {
-  return 0;
+  return 500;
 }
 
 function getY(index) {
@@ -43,7 +43,7 @@ function parseLabels(inputSVG, targetSVG) {
     text.textContent = "--";
     text.setAttribute(LABEL_DATA_ATTRIBUTE, answer);
     targetSVG.insertAdjacentHTML('beforeend', `<text transform="matrix(1 0 0 1 0 0)"
- class="${DRAGGABLE_CLASS}" x="${getX(i)}" y="${getY(i)}">${answer}</text>`);
+      class="${DRAGGABLE_CLASS}" x="${getX(i)}" y="${getY(i)}">${answer}</text>`);
   });
 }
 
@@ -70,14 +70,20 @@ export default Component.extend({
     }
   },
 
+  hovered() {
+    let placeholders = Array.prototype.slice.call(this.element.querySelectorAll(`[${LABEL_DATA_ATTRIBUTE}]`));
+
+    return placeholders.any(label => detectOverlap(label, this.selectedElement));
+  },
+
   mouseMove(evt) {
     if (!this.selectedElement) { return; }
 
-    this.element.querySelectorAll(`[${LABEL_DATA_ATTRIBUTE}]`).forEach(label => {
-      if (detectOverlap(label, this.selectedElement)) {
-        console.log('overlap');
-      }
-    });
+    let hovered = this.hovered();
+
+    if (hovered) {
+      console.log(`overlap ${hovered}`);
+    }
 
     let dx = evt.clientX - this.currentX;
     let dy = evt.clientY - this.currentY;
@@ -97,7 +103,11 @@ export default Component.extend({
 
   mouseUp(evt) {
     if (!this.selectedElement) { return; }
-    // this.resetPosition(this.selectedElement);
+
+    if (!this.hovered()) {
+      this.resetPosition(this.selectedElement);
+    }
+
     this.selectedElement = null;
   }
 
